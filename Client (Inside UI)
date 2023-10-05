@@ -1,0 +1,199 @@
+local Player = game.Players.LocalPlayer
+
+local UIEffects = require(game.ReplicatedStorage.ClientModules.UIEffects)
+local ConvertValues = require(game.ReplicatedStorage.ClientModules.ConvertValues)
+
+repeat wait() until Player.Loaded.Value == true
+repeat wait() until script.Parent.Parent:FindFirstChild("Audio") ~= nil
+
+wait(0.5)
+
+local SocialService = game:GetService("SocialService")
+
+local MainFrame = script.Parent.Frame2
+local UIButton = script.Parent.Parent:FindFirstChild("Audio").Frame.Friends
+local InviteButton = MainFrame.Invited.Invite
+local CloseButton = MainFrame.Close
+
+local UIS = game:GetService("UserInputService")
+local SocialService = game:GetService("SocialService")
+
+--Functions
+
+local CollectionService = game:GetService("CollectionService")
+local function InvisibleUI()
+	local TaggedParts = CollectionService:GetTagged("UI_MainFrame")
+	for i,v in pairs(TaggedParts) do
+		if v ~= MainFrame then
+			v.Visible = false
+		end
+	end
+end
+
+
+--OpenClose
+
+UIButton.MouseButton1Click:Connect(function()
+	MainFrame.Visible = not MainFrame.Visible
+	
+	if MainFrame.Visible == true then
+		UIButton.Important.Visible = false
+		
+		game.Lighting.Blur.Size = 15
+
+		InvisibleUI()
+	else
+		game.Lighting.Blur.Size = 0
+	end
+end)
+
+CloseButton.MouseEnter:Connect(function()
+	UIEffects.PermaBounce(CloseButton, true)
+end)
+CloseButton.MouseLeave:Connect(function()
+	UIEffects.PermaBounce(CloseButton, false)
+end)
+CloseButton.MouseButton1Click:Connect(function()
+	MainFrame.Visible = false
+	game.Lighting.Blur.Size = 0
+
+end)
+
+InviteButton.MouseEnter:Connect(function()
+	UIEffects.PermaBounce(InviteButton, true)
+end)
+InviteButton.MouseLeave:Connect(function()
+	UIEffects.PermaBounce(InviteButton, false)
+end)
+InviteButton.MouseButton1Click:Connect(function()
+	SocialService:PromptGameInvite(Player)
+end)
+
+UIS.InputBegan:Connect(function(Input, Processed)
+	if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+		local mousePos = Input.Position
+		local objects = Player.PlayerGui:GetGuiObjectsAtPosition(mousePos.X, mousePos.Y)
+
+		if Processed == false then
+			if MainFrame.Visible == true then
+				game.Lighting.Blur.Size = 15
+			end
+		
+		end
+
+
+	end
+end)
+
+
+local ProgressionModule = require(game.ReplicatedStorage.ClientModules.Progression)
+
+--Action
+local function SetInvitedNumber()
+	local Number = #Player.InvitedFriends:GetChildren()
+	
+	MainFrame.Invited.Number.Text = tostring(Number)
+end
+local function SetUp()
+	local RewardList = ProgressionModule.GetFriendRewards()
+	
+	for i,v in pairs(RewardList) do
+		local Clone = MainFrame.Rewards.ScrollingFrame.Folder.Frame:Clone()
+		Clone.Name = tostring(i)
+		Clone.LayoutOrder = i
+		
+		Clone:FindFirstChild(v["Type"]).Visible = true
+		if v["Invites"] == 1 then
+			Clone.Required.Text = "1 Invite"
+		else
+			Clone.Required.Text =tostring(v["Invites"]).." Invites"
+		end
+		if v["Type"] == "Shield" then
+			Clone.Reward.Text = tostring(v["Amount"]/60).."min "..tostring(v["Type"])
+		else
+			Clone.Reward.Text = tostring(v["Amount"]).." "..tostring(v["Type"])
+		end
+		Clone.Visible = true
+		Clone.Parent = MainFrame.Rewards.ScrollingFrame
+		
+		
+		
+		Clone.Claim.MouseButton1Click:Connect(function()
+			if Player.FriendsRewards:FindFirstChild(tostring(i)) == nil then
+				game.ReplicatedStorage.Remotes.ClaimFriendReward:FireServer(i)
+			end
+		end)
+	end
+end
+local function UpdateRewards()
+	local Claimable = 0
+	local Number = #Player.InvitedFriends:GetChildren()
+	local RewardList = ProgressionModule.GetFriendRewards()
+	for i,v in pairs(RewardList) do
+		if v["Invites"] <= Number then
+			if MainFrame.Rewards.ScrollingFrame:FindFirstChild(tostring(i)) ~= nil then
+				local Frame = MainFrame.Rewards.ScrollingFrame:FindFirstChild(tostring(i))
+				
+				if Player.FriendsRewards:FindFirstChild(i) == nil then
+					Frame.Claim.Visible = true
+					Frame.Claimed.Visible = false
+					Frame.Required.Visible = false
+					
+					Claimable += 1
+
+				else
+					Frame.Claim.Visible = false
+					Frame.Claimed.Visible = true
+					Frame.Required.Visible = false
+
+				end
+			end
+			
+		else
+			if MainFrame.Rewards.ScrollingFrame:FindFirstChild(tostring(i)) ~= nil then
+				local Frame = MainFrame.Rewards.ScrollingFrame:FindFirstChild(tostring(i))
+
+				Frame.Claim.Visible = false
+				Frame.Claimed.Visible = false
+				Frame.Required.Visible = true
+			end
+		end
+	end
+	
+	if Claimable > 0 then
+		UIButton.Important.Visible = true
+	end
+end
+
+
+SetInvitedNumber()
+SetUp()
+UpdateRewards()
+
+game.ReplicatedStorage.Remotes.FriendInvited.OnClientEvent:Connect(function()
+	SetInvitedNumber()
+	UpdateRewards()
+	
+	
+	--Message
+	local RewardList = ProgressionModule.GetFriendRewards()
+	local Number = #Player.InvitedFriends:GetChildren()
+	
+	local SendMessage = false
+	for i,v in pairs(RewardList) do
+		if v["Invites"] == Number then
+			SendMessage = true
+		end
+	end
+	
+	if SendMessage == true then
+		game.ReplicatedStorage.Remotes.FriendRewardReady:Fire(Player, true)
+	end
+end)
+
+game.ReplicatedStorage.Remotes.ClaimFriendReward.OnClientEvent:Connect(function()
+	UpdateRewards()
+end)
+
+
+
