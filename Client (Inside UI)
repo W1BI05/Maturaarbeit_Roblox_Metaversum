@@ -1,0 +1,201 @@
+local XP_Progression = require(game.ReplicatedStorage.ClientModules.XP_Progression)
+local ConvertValues = require(game.ReplicatedStorage.ClientModules.ConvertValues)
+
+local TweenService = game:GetService("TweenService")
+
+local Player = game.Players.LocalPlayer
+
+repeat wait() until Player.Loaded.Value == true
+
+
+local Player = game.Players.LocalPlayer
+
+local UIEffects = require(game.ReplicatedStorage.ClientModules.UIEffects)
+local ConvertValues = require(game.ReplicatedStorage.ClientModules.ConvertValues)
+
+repeat wait() until Player.Loaded.Value == true
+repeat wait() until script.Parent.Parent:FindFirstChild("Main") ~= nil
+wait(0.5)
+local UIButton = script.Parent.Parent:WaitForChild("Main").Background.Gifts
+
+local MainFrame = script.Parent.Frame
+local CloseButton = MainFrame.Close
+
+local UIS = game:GetService("UserInputService")
+
+--Functions
+
+local CollectionService = game:GetService("CollectionService")
+local function InvisibleUI()
+	local TaggedParts = CollectionService:GetTagged("UI_MainFrame")
+	for i,v in pairs(TaggedParts) do
+		if v ~= MainFrame then
+			v.Visible = false
+		end
+	end
+end
+
+--OpenClose
+UIButton.MouseEnter:Connect(function()
+	UIEffects.PermaBounce(UIButton, true)
+end)
+UIButton.MouseLeave:Connect(function()
+	UIEffects.PermaBounce(UIButton, false)
+end)
+UIButton.MouseButton1Click:Connect(function()
+	MainFrame.Visible = not MainFrame.Visible
+	
+	if MainFrame.Visible == true then
+		game.Lighting.Blur.Size = 15
+		
+		InvisibleUI()
+	else
+		game.Lighting.Blur.Size = 0
+	end
+	
+end)
+CloseButton.MouseEnter:Connect(function()
+	UIEffects.PermaBounce(CloseButton, true)
+end)
+CloseButton.MouseLeave:Connect(function()
+	UIEffects.PermaBounce(CloseButton, false)
+end)
+CloseButton.MouseButton1Click:Connect(function()
+	MainFrame.Visible = false
+	
+	game.Lighting.Blur.Size = 0
+
+end)
+
+local PlayerGui = Player.PlayerGui
+
+UIS.InputBegan:Connect(function(Input, Processed)
+	if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+		local mousePos = Input.Position
+		local objects = PlayerGui:GetGuiObjectsAtPosition(mousePos.X, mousePos.Y)
+
+		if Processed == false then
+			MainFrame.Visible = false
+			
+			game.Lighting.Blur.Size = 0
+		end
+
+
+	end
+end)
+
+
+local JoinedTime = Player.GameStats.JoinedTime.Value
+
+--Setup Buttons
+for i = 1, 8, 1 do
+
+	local Clone = MainFrame.Main.Gifts.Folder.TextButton:Clone()
+	Clone.Name = tostring(i)
+	
+	Clone.Chests:FindFirstChild(tostring(i)).Visible = true
+	
+	Clone.LayoutOrder = i
+	Clone.Visible = true
+	Clone.Parent = MainFrame.Main.Gifts
+
+
+	Clone.MouseButton1Click:Connect(function()
+
+
+		--Stuff
+		local SecondsPassed = os.time() - JoinedTime
+
+		if (i * 480) <= SecondsPassed then
+			if Player.Gifts:FindFirstChild(tostring(i)) == nil then
+				game.ReplicatedStorage.Remotes.ClaimGift:FireServer(i)
+
+
+				Clone.BackgroundColor3 = Color3.new(1, 0.129412, 0.129412)
+				
+
+				Clone.Indicator.Text = "Claimed"
+			end
+		else
+			game.ReplicatedStorage.Remotes.GiftReady:Fire(Player, false)
+		end
+
+	end)
+end
+
+local function toTime(Seconds)
+	local Minutes = math.floor(Seconds/60)
+	local SecondsOnly = Seconds - Minutes*60
+
+	if Minutes > 9 and SecondsOnly > 9 then
+		return tostring(Minutes)..":"..tostring(SecondsOnly)
+	elseif Minutes < 10 and SecondsOnly > 9 then
+		return "0"..tostring(Minutes)..":"..tostring(SecondsOnly) 
+	elseif Minutes > 9 and SecondsOnly < 10  then
+		return tostring(Minutes)..":0"..tostring(SecondsOnly)
+	else
+		return "0"..tostring(Minutes)..":0"..tostring(SecondsOnly)
+	end
+end
+
+while true do
+	local SecondsPassed = math.round(workspace:GetServerTimeNow()) - JoinedTime
+
+	local Unclaimed = 0
+
+	for i,v in pairs(MainFrame.Main.Gifts:GetChildren()) do
+		if v:IsA("TextButton") then
+			local Number = math.clamp(tonumber(v.Name), 1 ,30)
+
+
+			if (Number * 480) <= SecondsPassed then
+				if Player.Gifts:FindFirstChild(tostring(Number)) ~= nil then
+					v.BackgroundColor3 = Color3.new(1, 0.129412, 0.129412)
+					
+
+					v.Indicator.Text = "Claimed"
+				else
+					v.BackgroundColor3 = Color3.new(0, 1, 0)
+					
+
+					v.Indicator.Text = "Claim!"
+
+					Unclaimed = Unclaimed + 1
+					
+					if (Number * 480) == SecondsPassed then
+						game.ReplicatedStorage.Remotes.GiftReady:Fire(Player, true)
+					end
+
+					
+				end
+
+			else
+				local SecondsToGo = (Number * 480) - SecondsPassed
+
+				v.Indicator.Text = toTime(SecondsToGo)
+
+			end
+
+
+		end
+	end
+	
+	
+	if Unclaimed > 0 then
+		UIButton.Important.Label.Text = tostring(Unclaimed)
+		UIButton.Important.Visible = true
+
+		UIButton.Label.Text = "Claim!"
+	else
+		UIButton.Important.Visible = false
+		
+		if math.floor(SecondsPassed/480) < 8 then
+			UIButton.Label.Text = toTime(480 - SecondsPassed%480)
+		else
+			UIButton.Label.Text = "Gifts"
+		end
+		
+	end
+
+	wait(1)
+end
