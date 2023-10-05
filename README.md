@@ -1,0 +1,7 @@
+# Maturaarbeit_Roblox_Metaversum
+-
+
+- In den jeweiligen Ordnern steht der Code von allen Relevanten Scripts für die einzelnen Leitfragen. 
+- Dieser Code allein funktioniert nicht und ist von vielen anderen MOdule Scripts abhängig, jedoch kann man darin 
+  trotzdem die Grundlegenden Konzepte die in der Arbeit beschrieben wurden erkennen.
+- Das Script für die Datenspeicherung wird nicht freigegeben, da es über 500 Linien Code ist, wobei nur 15 im Zusammenhang mit der Arbeit stehen.
