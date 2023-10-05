@@ -1,0 +1,41 @@
+local Progression = require(game.ReplicatedStorage.ClientModules.Progression)
+local TaskModule = require(game.ServerStorage.Task_Module)
+
+game.ReplicatedStorage.Remotes.ClaimGift.OnServerEvent:Connect(function(Player, Number)
+	local JoinedTime = Player.GameStats.JoinedTime.Value
+	local SecondsPassed = math.round(workspace:GetServerTimeNow()) - JoinedTime
+
+	if (Number * 480) <= SecondsPassed then
+		if Player.Gifts:FindFirstChild(tostring(Number)) == nil then
+
+			local Type, Reward = Progression.GetTimedReward(Number)
+			local RewardString = tostring(Reward)
+			
+			--Gifting Benefit
+			if Type == "Levels" then
+				Player.GameStats.Level.Value = Player.GameStats.Level.Value + Reward
+				TaskModule.AddProgress(Player, "Level", Reward)
+			elseif Type == "Souls" then
+				Player.GameStats.Souls.Value = Player.GameStats.Souls.Value + Reward
+				
+			elseif Type == "Shield" then
+				if Player.GameStats.ShieldTimer.Value == 0 then
+					Player.GameStats.ShieldTimer.Value = math.round(workspace:GetServerTimeNow()) + (Reward*60)
+				else
+					Player.GameStats.ShieldTimer.Value = Player.GameStats.ShieldTimer.Value + (Reward*60)
+				end
+				RewardString = RewardString.."min"
+			elseif Type == "LuckyCrate" then
+				game.ReplicatedStorage.Remotes.SpawnCrate:Fire(Player)
+			end
+			
+			--Sending Message
+			game.ReplicatedStorage.Remotes.Message:FireClient(Player,"GiftClaimed", "Gift Claimed: "..Type.."("..RewardString..")")
+			
+			--NewValue
+			local String = Instance.new("StringValue")
+			String.Name = tostring(Number)
+			String.Parent = Player.Gifts
+		end
+	end
+end)
