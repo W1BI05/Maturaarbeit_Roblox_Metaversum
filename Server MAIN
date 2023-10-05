@@ -1,0 +1,66 @@
+local ProgressionModule = require(game.ReplicatedStorage.ClientModules.Progression)
+local TaskModule = require(game.ServerStorage.Task_Module)
+local XP_Module = require(game.ServerStorage.XP_Module)
+
+
+game:GetService("Players").PlayerAdded:Connect(function(Player)
+	for i,v in pairs(game:GetService("Players"):GetChildren()) do
+		if v.UserId ~= Player.UserId then
+			if Player:IsFriendsWith(v.UserId) == true then
+				if v.InvitedFriends:FindFirstChild(tostring(Player.UserId)) == nil then
+					local Value = Instance.new("StringValue")
+					Value.Name = tostring(Player.UserId)
+					Value.Value = ""
+					Value.Parent = v.InvitedFriends
+					
+					TaskModule.AddProgress(v, "Friends", 1)
+					
+					
+					--Remote New Friend Invited
+					game.ReplicatedStorage.Remotes.FriendInvited:FireClient(v)
+				end
+			end
+		end
+
+	end
+end)
+
+game.ReplicatedStorage.Remotes.ClaimFriendReward.OnServerEvent:Connect(function(Player, RewardID)
+	if Player.FriendsRewards:FindFirstChild(tostring(RewardID)) == nil then
+		
+		local RewardList = ProgressionModule.GetFriendRewards()
+		
+		if RewardList[RewardID] ~= nil then
+			--Reward Player
+			local Type = RewardList[RewardID]["Type"]
+			local Reward = RewardList[RewardID]["Amount"]
+			
+			if Type == "Levels" then
+				Player.GameStats.Level.Value = Player.GameStats.Level.Value + Reward
+				TaskModule.AddProgress(Player, "Level", Reward)
+			elseif Type == "Souls" then
+				Player.GameStats.Souls.Value = Player.GameStats.Souls.Value + Reward
+
+			elseif Type == "Shield" then
+				if Player.GameStats.ShieldTimer.Value == 0 then
+					Player.GameStats.ShieldTimer.Value = math.round(workspace:GetServerTimeNow()) + (Reward)
+				else
+					Player.GameStats.ShieldTimer.Value = Player.GameStats.ShieldTimer.Value + (Reward)
+				end
+				
+			elseif Type == "XP" then
+				XP_Module.GrantXP(Player, Reward)
+			end
+			
+			
+			--Add Into Data Store
+			local Value = Instance.new("StringValue")
+			Value.Name = tostring(RewardID)
+			Value.Value = ""
+			Value.Parent = Player.FriendsRewards
+			
+			--Send Remote Back
+			game.ReplicatedStorage.Remotes.ClaimFriendReward:FireClient(Player)
+		end
+	end
+end)
