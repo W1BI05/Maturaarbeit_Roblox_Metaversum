@@ -1,0 +1,163 @@
+local TaskModule = {}
+
+local Mastery = require(game.ReplicatedStorage.ClientModules.Mastery)
+
+local QuestTypes = {
+	{["Type"] = "Kills", ["MaxTasks"] = 2, ["RequiredRange"] = 25, ["RewardRange"] = 100, ["QuestText1"] = "Kill ", ["QuestText2"] = " Players"},
+	{["Type"] = "Level", ["MaxTasks"] = 1, ["RequiredRange"] = 15, ["RewardRange"] = 150, ["QuestText1"] = "Reach Level ", ["QuestText2"] = ""},
+	{["Type"] = "Time", ["MaxTasks"] = 1, ["RequiredRange"] = 30, ["RewardRange"] = 175, ["QuestText1"] = "Play for ", ["QuestText2"] = " Minutes"},
+	{["Type"] = "Damage", ["MaxTasks"] = 2, ["RequiredRange"] = 3500, ["RewardRange"] = 200 , ["QuestText1"] = "Deal ", ["QuestText2"] = " Damage"},
+	{["Type"] = "Rebirth", ["MaxTasks"] = 1, ["RequiredRange"] = 1, ["RewardRange"] = 275 , ["QuestText1"] = "Rebirth ", ["QuestText2"] = " Times"},
+	{["Type"] = "Friends", ["MaxTasks"] = 1, ["RequiredRange"] = 1, ["RewardRange"] = 375 , ["QuestText1"] = "Invite ", ["QuestText2"] = " Friends"},
+}
+
+local function FindQuest(Player, Type, TimeType)
+	local Quest = nil
+	local HighestProgress = -1
+	for i,v in pairs(Player.Tasks:FindFirstChild(TimeType.."Tasks"):GetChildren()) do
+		if v.Type.Value == Type then
+			if v.Progress.Value > HighestProgress and v.Progress.Value < v.Required.Value then
+				Quest = v
+				HighestProgress = v.Progress.Value
+			end
+		end
+	end
+	return Quest
+end
+
+TaskModule.AddProgress = function(Player, Type, Amount)
+	if Player.Loaded.Value == true then
+		local DailyQuest = FindQuest(Player, Type, "Daily")
+		local WeeklyQuest = FindQuest(Player, Type, "Weekly")
+		
+		if DailyQuest ~= nil then
+			if DailyQuest.Progress.Value < DailyQuest.Required.Value then
+				if (DailyQuest.Required.Value - DailyQuest.Progress.Value) - Amount > 0 then
+					if Type == "Level" then
+						DailyQuest.Progress.Value = math.clamp(Player.GameStats.Level.Value, 1, DailyQuest.Required.Value)
+					else
+						DailyQuest.Progress.Value = DailyQuest.Progress.Value + Amount
+					end
+
+				else
+					if Type == "Level" then
+						DailyQuest.Progress.Value = math.clamp(Player.GameStats.Level.Value, 1, DailyQuest.Required.Value)
+						
+						if DailyQuest.Progress.Value >= DailyQuest.Required.Value then
+							TaskModule.GiftReward(Player, "Daily", DailyQuest.Name)
+						end
+					else
+						DailyQuest.Progress.Value = DailyQuest.Required.Value
+
+						TaskModule.GiftReward(Player, "Daily", DailyQuest.Name)
+					end
+				
+				end
+				game.ReplicatedStorage.Remotes.TaskProgress:FireClient(Player, "Daily", DailyQuest.Name)
+			end
+			
+		end
+		if WeeklyQuest ~= nil then
+			if WeeklyQuest.Progress.Value < WeeklyQuest.Required.Value then
+				if (WeeklyQuest.Required.Value - WeeklyQuest.Progress.Value) - Amount > 0 then
+					if Type == "Level" then
+						WeeklyQuest.Progress.Value = math.clamp(Player.GameStats.Level.Value, 1, WeeklyQuest.Required.Value)
+					else
+						WeeklyQuest.Progress.Value = WeeklyQuest.Progress.Value + Amount
+					end
+				else
+					if Type == "Level" then
+						WeeklyQuest.Progress.Value = math.clamp(Player.GameStats.Level.Value, 1, WeeklyQuest.Required.Value)
+
+						if WeeklyQuest.Progress.Value >= WeeklyQuest.Required.Value then
+							TaskModule.GiftReward(Player, "Weekly", WeeklyQuest.Name)
+						end
+					else
+						WeeklyQuest.Progress.Value = WeeklyQuest.Required.Value
+
+						TaskModule.GiftReward(Player, "Weekly", WeeklyQuest.Name)
+					end
+				end
+				game.ReplicatedStorage.Remotes.TaskProgress:FireClient(Player, "Weekly", WeeklyQuest.Name)
+			end
+		end
+	end
+end
+
+local XP_Module = require(game.ServerStorage.XP_Module)
+
+TaskModule.GiftReward = function(Player, TimeType, Id)
+	if Player.Loaded.Value == true then
+		local XP_Reward = Player.Tasks:FindFirstChild(TimeType.."Tasks"):FindFirstChild(Id).Reward.Value
+		
+		local Multiplier = Mastery.CheckBenefit(Player, "XPGain")
+
+		XP_Reward = XP_Reward * Multiplier
+		
+		XP_Module.GrantXP(Player, XP_Reward)
+		
+		game.ReplicatedStorage.Remotes.TaskFinished:FireClient(Player, TimeType, Id)
+		
+	end
+end
+
+local function CreateValue(Type, Name, value, Parent)
+	local Value = Instance.new(Type)
+	Value.Name = Name
+	Value.Value = value
+	Value.Parent = Parent
+
+	return Value
+end
+
+TaskModule.AddQuests = function(Player, Type)
+	if Player.Loaded.Value == true then
+		local function PickRandomTask()
+			local Task = QuestTypes[math.random(1, #QuestTypes)]
+			
+			local SameNumber = 0
+			for i,v in pairs(Player.Tasks:FindFirstChild(Type.."Tasks"):GetChildren()) do
+				if v.Type.Value == Task["Type"] then
+					SameNumber += 1
+				end
+			end
+			if SameNumber >= Task["MaxTasks"] then
+				PickRandomTask()
+			else
+				local Multiplier = 1
+				if Type == "Weekly" then
+					local Multipliers = {
+						["Kills"] = 6,
+						["Level"] = 3,
+						["Time"] = 5,
+						["Damage"] = 5,
+						["Rebirth"] = 3,
+						["Friends"] = 2,
+					}
+					Multiplier = Multipliers[Task["Type"]]
+				end
+				local Adders = {
+					["Kills"] = {0, -5, 5, 10, -10},
+					["Level"] = {0, -5, 5, 10, -10},
+					["Time"] = {0, -5, 5},
+					["Damage"] = {0, -500, 500, 250, -250, -750, 750, 1000, -1000},
+					["Rebirth"] = {0},
+					["Friends"] = {0},
+				}
+				
+				local Required = ((Task["RequiredRange"])+Adders[Task["Type"]][math.random(1, #Adders[Task["Type"]])])*Multiplier
+				
+				local Value = CreateValue("StringValue", game:GetService("HttpService"):GenerateGUID(), "", Player.Tasks:FindFirstChild(Type.."Tasks"))
+				local Type = CreateValue("StringValue", "Type", Task["Type"], Value)
+				local RequiredVal = CreateValue("IntValue", "Required", Required, Value)
+				local Progress = CreateValue("IntValue", "Progress", 0, Value)
+				local Reward = CreateValue("IntValue", "Reward", Task["RewardRange"]*Multiplier, Value)
+				local Description = CreateValue("StringValue", "Description", Task["QuestText1"]..tostring(Required)..Task["QuestText2"], Value)
+			end
+		end
+		PickRandomTask()
+
+	end
+end
+
+return TaskModule
