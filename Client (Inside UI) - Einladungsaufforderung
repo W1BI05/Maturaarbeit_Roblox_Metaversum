@@ -1,0 +1,122 @@
+local Player = game.Players.LocalPlayer
+
+local UIEffects = require(game.ReplicatedStorage.ClientModules.UIEffects)
+local ConvertValues = require(game.ReplicatedStorage.ClientModules.ConvertValues)
+
+
+repeat wait() until Player.Loaded.Value == true
+
+local MainFrame = script.Parent.Frame
+local InviteButton = MainFrame.Invite
+local RewardsButton = MainFrame.Rewards
+local CloseButton = MainFrame.Close
+
+local UIS = game:GetService("UserInputService")
+local SocialService = game:GetService("SocialService")
+
+
+--Functions
+
+local CollectionService = game:GetService("CollectionService")
+local function InvisibleUI()
+	local TaggedParts = CollectionService:GetTagged("UI_MainFrame")
+	for i,v in pairs(TaggedParts) do
+		if v ~= MainFrame then
+			v.Visible = false
+		end
+	end
+end
+
+
+--OpenClose
+InviteButton.MouseEnter:Connect(function()
+	UIEffects.PermaBounce(InviteButton, true)
+end)
+InviteButton.MouseLeave:Connect(function()
+	UIEffects.PermaBounce(InviteButton, false)
+end)
+InviteButton.MouseButton1Click:Connect(function()
+	--MainFrame.Visible = false
+	--game.Lighting.Blur.Size = 0
+	
+	SocialService:PromptGameInvite(Player)
+end)
+
+CloseButton.MouseEnter:Connect(function()
+	UIEffects.PermaBounce(CloseButton, true)
+end)
+CloseButton.MouseLeave:Connect(function()
+	UIEffects.PermaBounce(CloseButton, false)
+end)
+CloseButton.MouseButton1Click:Connect(function()
+	MainFrame.Visible = false
+	game.Lighting.Blur.Size = 0
+
+end)
+
+RewardsButton.MouseEnter:Connect(function()
+	UIEffects.PermaBounce(RewardsButton, true)
+end)
+RewardsButton.MouseLeave:Connect(function()
+	UIEffects.PermaBounce(RewardsButton, false)
+end)
+RewardsButton.MouseButton1Click:Connect(function()
+	
+	MainFrame.Visible = false
+	script.Parent.Frame2.Visible = true
+
+
+end)
+
+UIS.InputBegan:Connect(function(Input, Processed)
+	if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+		local mousePos = Input.Position
+		local objects = Player.PlayerGui:GetGuiObjectsAtPosition(mousePos.X, mousePos.Y)
+
+		if Processed == false then
+			if MainFrame.Visible == true then
+				game.Lighting.Blur.Size = 15
+			end
+
+			
+		end
+
+
+	end
+end)
+
+
+local Counter = 0
+while true do
+	Counter += 1
+	if Counter > 60 then
+		Counter = 0
+		
+		local NumberOfPlayers = #game:GetService("Players"):GetChildren()
+		
+		if NumberOfPlayers <= 4 then
+			if MainFrame.Visible == false then
+				if Player.SafeZone.Value == true or NumberOfPlayers == 1 then
+					MainFrame.Visible = true
+
+
+					game.Lighting.Blur.Size = 15
+
+
+					InvisibleUI()
+				end
+				
+			end
+		elseif math.random(1, 10) == 2 then
+			if Player.SafeZone.Value == true then
+				MainFrame.Visible = true
+
+				game.Lighting.Blur.Size = 15
+
+				InvisibleUI()
+			end
+		end
+	end
+	
+	wait(1)
+end
