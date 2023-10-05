@@ -1,0 +1,207 @@
+local Player = game.Players.LocalPlayer
+
+local UIEffects = require(game.ReplicatedStorage.ClientModules.UIEffects)
+local ConvertValues = require(game.ReplicatedStorage.ClientModules.ConvertValues)
+
+repeat wait() until Player.Loaded.Value == true
+repeat wait() until script.Parent.Parent:FindFirstChild("Main") ~= nil
+wait(0.5)
+local UIButton = script.Parent.Parent:WaitForChild("Main").Background.Tasks
+local MainFrame = script.Parent.Frame
+local CloseButton = MainFrame.Close
+
+local UIS = game:GetService("UserInputService")
+
+
+local CollectionService = game:GetService("CollectionService")
+local function InvisibleUI()
+	local TaggedParts = CollectionService:GetTagged("UI_MainFrame")
+	for i,v in pairs(TaggedParts) do
+		if v ~= MainFrame then
+			v.Visible = false
+		end
+	end
+end
+--Functions
+game.Lighting.Blur.Size = 0
+
+local function UpdateImportance()
+	if UIButton.ImportantCounter.Value == 0 then
+		UIButton.Important.Visible = false
+	else
+		if UIButton.ImportantCounter.Value == 1 then
+			UIButton.Important.Label.Text = "!"
+		else
+			UIButton.Important.Label.Text = tostring(UIButton.ImportantCounter.Value)
+		end
+		UIButton.Important.Visible = true
+	end
+end
+
+UpdateImportance()
+
+
+--OpenClose
+UIButton.MouseEnter:Connect(function()
+	UIEffects.PermaBounce(UIButton, true)
+end)
+UIButton.MouseLeave:Connect(function()
+	UIEffects.PermaBounce(UIButton, false)
+end)
+UIButton.MouseButton1Click:Connect(function()
+	MainFrame.Visible = not MainFrame.Visible
+	if MainFrame.Visible == true then
+		InvisibleUI()
+		
+		UIButton.ImportantCounter.Value = 0
+		
+		UpdateImportance()
+
+		game.Lighting.Blur.Size = 15
+	else
+		game.Lighting.Blur.Size = 0
+	end
+
+end)
+CloseButton.MouseEnter:Connect(function()
+	UIEffects.PermaBounce(CloseButton, true)
+end)
+CloseButton.MouseLeave:Connect(function()
+	UIEffects.PermaBounce(CloseButton, false)
+end)
+CloseButton.MouseButton1Click:Connect(function()
+	MainFrame.Visible = false
+	
+	game.Lighting.Blur.Size = 0
+end)
+
+local PlayerGui = Player.PlayerGui
+
+UIS.InputBegan:Connect(function(Input, Processed)
+	if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
+		local mousePos = Input.Position
+		local objects = PlayerGui:GetGuiObjectsAtPosition(mousePos.X, mousePos.Y)
+
+		if Processed == false then
+			MainFrame.Visible = false
+			game.Lighting.Blur.Size = 0
+		end
+
+
+	end
+end)
+
+local function Setup()
+	for i,v in pairs(Player.Tasks.DailyTasks:GetChildren()) do
+		local FrameClone = MainFrame.Daily.ScrollingFrame.Folder.Frame:Clone()
+		FrameClone.Name = v.Name
+		FrameClone.Description.Text = string.upper(v.Description.Value)
+		FrameClone.Reward.Text = tostring(v.Reward.Value).." XP"
+		FrameClone.Bar.TextLabel.Text = tostring(v.Progress.Value).."/"..tostring(v.Required.Value)
+		FrameClone.Bar.CanvasGroup.Frame.Size = UDim2.new(v.Progress.Value/v.Required.Value, 0, 1, 0)
+		FrameClone.Visible = true
+		FrameClone.LayoutOrder = i
+		FrameClone.Bar.ImageLabel.Visible = v.Progress.Value >= v.Required.Value
+		FrameClone.Parent = MainFrame.Daily.ScrollingFrame
+	end
+	for i,v in pairs(Player.Tasks.WeeklyTasks:GetChildren()) do
+		local FrameClone = MainFrame.Weekly.ScrollingFrame.Folder.Frame:Clone()
+		FrameClone.Name = v.Name
+		FrameClone.Description.Text = string.upper(v.Description.Value)
+		FrameClone.Reward.Text = tostring(v.Reward.Value).." XP"
+		FrameClone.Bar.TextLabel.Text = tostring(v.Progress.Value).."/"..tostring(v.Required.Value)
+		FrameClone.Bar.CanvasGroup.Frame.Size = UDim2.new(v.Progress.Value/v.Required.Value, 0, 1, 0)
+		FrameClone.Visible = true
+		FrameClone.LayoutOrder = i
+		FrameClone.Bar.ImageLabel.Visible = v.Progress.Value >= v.Required.Value
+		FrameClone.Parent = MainFrame.Weekly.ScrollingFrame
+	end
+end
+Setup()
+
+game.ReplicatedStorage.Remotes.TaskProgress.OnClientEvent:Connect(function(TimeType, Id)
+	local Task  = MainFrame:FindFirstChild(TimeType).ScrollingFrame:FindFirstChild(Id)
+	local DataTask = Player.Tasks:FindFirstChild(TimeType.."Tasks"):FindFirstChild(Id)
+	if Task ~= nil then
+		Task.Bar.TextLabel.Text = tostring(DataTask.Progress.Value).."/"..tostring(DataTask.Required.Value)
+		Task.Bar.CanvasGroup.Frame.Size = UDim2.new(DataTask.Progress.Value/DataTask.Required.Value, 0, 1, 0)
+	end
+	
+	
+end)
+
+game.ReplicatedStorage.Remotes.TaskFinished.OnClientEvent:Connect(function(TimeType, Id)
+	local Task  = MainFrame:FindFirstChild(TimeType).ScrollingFrame:FindFirstChild(Id)
+	if Task ~= nil then
+		Task.Bar.ImageLabel.Visible = true
+	end
+	
+	UIButton.ImportantCounter.Value += 1
+	
+	UpdateImportance()
+	
+end)
+
+game.ReplicatedStorage.Remotes.RefreshTasks.OnClientEvent:Connect(function(TimeType)
+	for i,v in pairs(MainFrame.Daily.ScrollingFrame:GetChildren()) do
+		if v:IsA("Frame") then
+			v:Destroy()
+			
+		end
+	end
+	for i,v in pairs(MainFrame.Weekly.ScrollingFrame:GetChildren()) do
+		if v:IsA("Frame") then
+			v:Destroy()
+
+		end
+	end
+	
+	Setup()
+end)
+
+function Format(Int)
+	return string.format("%02i", Int)
+end
+
+function convertToHMS(Seconds)
+	local Minutes = (Seconds - Seconds%60)/60
+	Seconds = Seconds - Minutes*60
+	local Hours = (Minutes - Minutes%60)/60
+	Minutes = Minutes - Hours*60
+	return Format(Hours)..":"..Format(Minutes)..":"..Format(Seconds)
+end
+
+function convertToDays(Seconds)
+	if math.floor(Seconds/86400) == 1 then
+		return tostring(math.floor(Seconds/86400)).." Day"
+	else
+		return tostring(math.floor(Seconds/86400)).." Days"
+	end
+	
+end
+
+
+while true do
+	wait(1)
+	local ServerTime = math.floor(game.Workspace:GetServerTimeNow())
+	local DailyTimePassed = ServerTime - Player.Tasks.DailyUpdated.Value 
+	local WeeklyTimePassed = ServerTime - Player.Tasks.WeeklyUpdated.Value
+	
+	local DayTimeLeft = 86400 - DailyTimePassed
+	local WeekTimeLeft = 604800 - WeeklyTimePassed
+	
+	MainFrame.Daily.Time.Text = convertToHMS(DayTimeLeft)
+	if WeekTimeLeft < 86400 then
+		MainFrame.Weekly.Time.Text = convertToHMS(WeekTimeLeft)
+	else
+		MainFrame.Weekly.Time.Text = convertToDays(WeekTimeLeft)
+	end
+	if DayTimeLeft <= 0 then
+		game.ReplicatedStorage.Remotes.RefreshTasks:FireServer("Daily")
+	end
+	if WeekTimeLeft <= 0 then
+		game.ReplicatedStorage.Remotes.RefreshTasks:FireServer("Weekly")
+		
+	end
+end
+
