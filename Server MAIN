@@ -1,0 +1,112 @@
+local TaskModule = require(game.ServerStorage.Task_Module)
+
+local function SetNewQuests(Player, Type)
+	--Destroying Old Quests
+	if Type == "Daily" then
+		for i,v in pairs(Player.Tasks.DailyTasks:GetChildren()) do
+			v:Destroy()
+		end
+		Player.Tasks.DailyUpdated.Value = math.floor(game.Workspace:GetServerTimeNow())
+		
+		--Setting New Quests
+		for i = 1, 6, 1 do
+
+			TaskModule.AddQuests(Player, "Daily")
+		end
+		
+		--Setting Initial Quests
+		TaskModule.AddProgress(Player, "Level", Player.GameStats.Level.Value)
+		
+	elseif Type == "Weekly" then
+		for i,v in pairs(Player.Tasks.WeeklyTasks:GetChildren()) do
+			v:Destroy()
+		end
+		
+		Player.Tasks.WeeklyUpdated.Value = math.floor(game.Workspace:GetServerTimeNow())
+
+		for i = 1, 6, 1 do
+			TaskModule.AddQuests(Player, "Weekly")
+		end
+		
+		--Setting Initial Quests
+		TaskModule.AddProgress(Player, "Level", Player.GameStats.Level.Value)
+	end
+end
+
+game:GetService("Players").PlayerAdded:Connect(function(Player)
+	repeat wait() until Player.Loaded.Value == true
+	
+	local CurrentTime = math.floor(game.Workspace:GetServerTimeNow())
+	
+	--Daily
+	local DailyUpdated = Player.Tasks.DailyUpdated.Value
+	
+	if math.floor(CurrentTime) - DailyUpdated > 86400 then
+		--Set New Quests
+		SetNewQuests(Player, "Daily")
+	end
+	
+	--Weekly
+	local WeeklyUpdated = Player.Tasks.WeeklyUpdated.Value
+
+	if math.floor(CurrentTime) - WeeklyUpdated > 604800 then
+		--Set New Quests
+		SetNewQuests(Player, "Weekly")
+	end
+end)
+
+
+game.ReplicatedStorage.Remotes.RefreshTasks.OnServerEvent:Connect(function(Player, Type)
+	local CurrentTime = math.floor(game.Workspace:GetServerTimeNow())
+	if Type == "Daily" then
+		--Daily
+		local DailyUpdated = Player.Tasks.DailyUpdated.Value
+
+		if (CurrentTime + 5) - DailyUpdated > 86400 then
+			--Set New Quests
+			SetNewQuests(Player, "Daily")
+		end
+	elseif Type == "Weekly" then
+		--Weekly
+		local WeeklyUpdated = Player.Tasks.WeeklyUpdated.Value
+
+		if (CurrentTime + 5) - WeeklyUpdated > 604800 then
+			--Set New Quests
+			SetNewQuests(Player, "Weekly")
+		end
+	end
+	game.ReplicatedStorage.Remotes.RefreshTasks:FireClient(Player, Type)
+end)
+
+game.ReplicatedStorage.Remotes.ClaimUGC.OnServerEvent:Connect(function(Player, UGC)
+	if UGC == "Greatsword" then
+		for i,v in pairs(Player.UGC:FindFirstChild(UGC):GetChildren()) do
+			local Claim = true
+			for i,v in pairs(Player.UGC:FindFirstChild(UGC):GetChildren()) do
+
+				if v.Name ~= "Claimed" then
+					if v.Value < v.Goal.Value then
+						Claim = false
+					end
+				else
+					if v.Value == true then
+						Claim = false
+					end
+				end
+			end
+			
+			if Claim == true then
+				if game:GetService("Workspace").Interactives.UGC:FindFirstChild(UGC).Quantity.Value > 0 then
+					game:GetService("MarketplaceService"):PromptPurchase(Player, 14805876783, true)
+					
+				end
+			end
+		end
+	end
+end)
+
+game:GetService("MarketplaceService").PromptPurchaseFinished:Connect(function(Player, Id, isPurchased)
+	if Id == 14805876783 and isPurchased == true then
+		Player.UGC:FindFirstChild("Greatsword").Claimed.Value = true
+	end
+end)
